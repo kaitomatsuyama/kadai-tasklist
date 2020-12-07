@@ -60,8 +60,13 @@ class TasksController extends Controller
             'content' => 'required|max:255',
         ]);
 
+        // 認証済みユーザ（閲覧者）の投稿として作成（リクエストされた値をもとに作成）
+        $request->user()->microposts()->create([
+            'content' => $request->content,
+        ]);
         
         $task = new Task;
+
         $task->user_id = \Auth::id();
         $task->status = $request->status;  
         $task->content = $request->content;
@@ -79,7 +84,16 @@ class TasksController extends Controller
      */
     public function show($id)
     {
-        $task = Task::findOrFail($id);
+       
+        // idの値でユーザを検索して取得
+        $user = User::findOrFail($id);
+
+        // 関係するモデルの件数をロード
+        $user->loadRelationshipCounts();
+
+        // ユーザの投稿一覧を作成日時の降順で取得
+        $microposts = $user->microposts()->orderBy('created_at', 'desc')->paginate(10);
+
 
         return view('tasks.show', [
             'task' => $task,
@@ -133,11 +147,15 @@ class TasksController extends Controller
      */
     public function destroy($id)
     {
-        $task = Task::findOrFail($id);
-        // タスクを削除
-        $task->delete();
+        // idの値で投稿を検索して取得
+        $task = \App\Micropost::findOrFail($id);
 
-        // トップページへリダイレクトさせる
-        return redirect('/');
+        // 認証済みユーザ（閲覧者）がその投稿の所有者である場合は、投稿を削除
+        if (\Auth::id() === $task->user_id) {
+            $task->delete();
+        }
+
+        // 前のURLへリダイレクトさせる
+        return back();
     }
 }
