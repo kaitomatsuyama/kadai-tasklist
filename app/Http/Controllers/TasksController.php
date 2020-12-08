@@ -60,10 +60,6 @@ class TasksController extends Controller
             'content' => 'required|max:255',
         ]);
 
-        // 認証済みユーザ（閲覧者）の投稿として作成（リクエストされた値をもとに作成）
-        $request->user()->microposts()->create([
-            'content' => $request->content,
-        ]);
         
         $task = new Task;
 
@@ -86,18 +82,17 @@ class TasksController extends Controller
     {
        
         // idの値でユーザを検索して取得
-        $user = User::findOrFail($id);
-
-        // 関係するモデルの件数をロード
-        $user->loadRelationshipCounts();
-
-        // ユーザの投稿一覧を作成日時の降順で取得
-        $microposts = $user->microposts()->orderBy('created_at', 'desc')->paginate(10);
-
-
-        return view('tasks.show', [
-            'task' => $task,
-        ]);
+        $task = Task::findOrFail($id);
+        
+        if (\Auth::id() === $task->user_id) {
+            // 同じユーザー
+            return view('tasks.show', [
+                'task' => $task,
+            ]);
+        } else {
+            // 他人のtask
+            return redirect('/');
+        }
     }
 
     /**
@@ -109,10 +104,16 @@ class TasksController extends Controller
     public function edit($id)
     {
         $task = Task::findOrFail($id);
-
+        
+      if (\Auth::id() ==- $task->user_id) {
+         
         return view('tasks.edit', [
             'task' => $task,
         ]);
+      } else {
+          return redirect('/');
+      }
+        
     }
 
     /**
@@ -148,7 +149,7 @@ class TasksController extends Controller
     public function destroy($id)
     {
         // idの値で投稿を検索して取得
-        $task = \App\Micropost::findOrFail($id);
+        $task = \App\Task::findOrFail($id);
 
         // 認証済みユーザ（閲覧者）がその投稿の所有者である場合は、投稿を削除
         if (\Auth::id() === $task->user_id) {
